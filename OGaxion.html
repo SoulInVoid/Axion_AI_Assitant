@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXION — Adaptive Intelligence Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-void:#020305;
+    --bg-deep:#030609;
+    --bg-panel:#0a0f18;
+    --bg-panel-alt:#0d1622;
+    --line-subtle:#141d2e;
+    --line:#1a2a3d;
+    --line-bright:#2a3f5a;
+    --cyan:#00d9ff;
+    --cyan-dark:#0099cc;
+    --violet:#bb86fc;
+    --violet-dark:#7c3aed;
+    --amber:#ffd700;
+    --text-hi:#e8f1f9;
+    --text-mid:#8fa2b3;
+    --text-low:#4d5c6b;
+    --glow-cyan:0 0 20px rgba(0, 217, 255, 0.5);
+    --glow-violet:0 0 18px rgba(187, 134, 252, 0.4);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  html,body{
+    height:100%;
+    background:var(--bg-void);
+    color:var(--text-hi);
+    font-family:'Space Grotesk', sans-serif;
+    overflow:hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  #bg-canvas{
+    position:fixed; inset:0; width:100%; height:100%; z-index:0; opacity:0.65;
+  }
+
+  #grid-overlay{
+    position:fixed; inset:0; z-index:0; opacity:0.06;
+    background-image:
+      linear-gradient(0deg, transparent 24%, rgba(0, 217, 255, .1) 25%, rgba(0, 217, 255, .1) 26%, transparent 27%, transparent 74%, rgba(0, 217, 255, .1) 75%, rgba(0, 217, 255, .1) 76%, transparent 77%, transparent),
+      linear-gradient(90deg, transparent 24%, rgba(0, 217, 255, .1) 25%, rgba(0, 217, 255, .1) 26%, transparent 27%, transparent 74%, rgba(0, 217, 255, .1) 75%, rgba(0, 217, 255, .1) 76%, transparent 77%, transparent);
+    background-size:50px 50px;
+    pointer-events:none;
+  }
+
+  .app{
+    position:relative; z-index:1;
+    height:100vh;
+    display:grid;
+    grid-template-columns:340px 1fr 300px;
+    grid-template-rows:62px 1fr;
+    grid-template-areas:
+      "top top top"
+      "left main right";
+  }
+
+  .topbar{
+    grid-area:top;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 28px;
+    border-bottom:2px solid var(--line);
+    background:linear-gradient(180deg, rgba(10,15,24,0.9) 0%, rgba(10,15,24,0.5) 100%);
+    backdrop-filter:blur(12px);
+    position:relative; overflow:hidden;
+  }
+
+  .topbar::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation:edge-scan 4s ease-in-out infinite;
+  }
+
+  @keyframes edge-scan{
+    0%,100%{ opacity:0; }
+    50%{ opacity:1; }
+  }
+
+  .brand{ display:flex; align-items:center; gap:14px; position:relative; z-index:2; }
+  
+  .brand-mark{
+    width:24px; height:24px;
+    position:relative;
+    background:radial-gradient(circle at 35% 35%, var(--cyan), var(--violet) 60%);
+    clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    box-shadow:0 0 18px rgba(0,217,255,0.6), inset 0 0 12px rgba(187,134,252,0.3);
+    animation:mark-rotate 6s linear infinite, mark-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes mark-rotate{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  @keyframes mark-pulse{ 0%,100%{ box-shadow:0 0 18px rgba(0,217,255,0.6), inset 0 0 12px rgba(187,134,252,0.3); } 50%{ box-shadow:0 0 32px rgba(0,217,255,0.9), inset 0 0 18px rgba(187,134,252,0.5); } }
+
+  .brand-name{
+    font-weight:700; letter-spacing:0.12em; font-size:16px;
+    text-shadow:0 0 10px rgba(0,217,255,0.5);
+    background:linear-gradient(135deg, var(--cyan), var(--violet));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+
+  .brand-sub{
+    font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-low);
+    letter-spacing:0.06em;
+    margin-left:10px; padding-left:10px;
+    border-left:1px solid var(--line-bright);
+  }
+
+  .status-cluster{
+    display:flex; align-items:center; gap:20px;
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    position:relative; z-index:2;
+  }
+
+  .status-item{
+    display:flex; align-items:center; gap:8px;
+    padding:6px 12px; border-radius:20px;
+    border:1px solid var(--line-bright);
+    background:rgba(0,217,255,0.06);
+    color:var(--cyan);
+  }
+
+  .dot-pulse{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+    animation:pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow{
+    0%,100%{ box-shadow:0 0 8px var(--cyan); transform:scale(1); }
+    50%{ box-shadow:0 0 16px var(--cyan); transform:scale(1.2); }
+  }
+
+  .left{
+    grid-area:left;
+    border-right:2px solid var(--line);
+    padding:28px 24px;
+    display:flex; flex-direction:column; gap:24px;
+    overflow-y:auto;
+    background:linear-gradient(135deg, rgba(13,22,32,0.6) 0%, rgba(10,15,24,0.4) 100%);
+  }
+
+  .core-stage{
+    position:relative; height:260px;
+    display:flex; align-items:center; justify-content:center;
+    perspective:1000px;
+  }
+
+  .core-vortex{
+    position:absolute; border-radius:50%;
+    box-shadow:inset 0 0 60px rgba(0,217,255,0.2);
+  }
+
+  .vortex-1{ width:220px; height:220px; border:2px solid rgba(0,217,255,0.2); animation:vortex-spin 50s linear infinite; }
+  .vortex-2{ width:160px; height:160px; border:1px solid rgba(187,134,252,0.25); animation:vortex-spin-rev 35s linear infinite; }
+  .vortex-3{ width:110px; height:110px; border:2px dashed rgba(0,217,255,0.3); animation:vortex-spin 25s linear infinite; }
+
+  @keyframes vortex-spin{ from{ transform:rotateZ(0deg); } to{ transform:rotateZ(360deg); } }
+  @keyframes vortex-spin-rev{ from{ transform:rotateZ(360deg); } to{ transform:rotateZ(0deg); } }
+
+  .core-nucleus{
+    width:76px; height:76px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #00e5ff, var(--cyan) 30%, var(--violet) 85%);
+    box-shadow:
+      0 0 40px rgba(0,217,255,0.7),
+      0 0 80px rgba(0,217,255,0.35),
+      inset 0 0 30px rgba(255,255,255,0.2),
+      inset 0 0 60px rgba(187,134,252,0.15);
+    animation:nucleus-breathe 4s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+    position:relative; z-index:2;
+  }
+
+  @keyframes nucleus-breathe{
+    0%,100%{ transform:scale(1) translateZ(0); filter:brightness(1); }
+    50%{ transform:scale(1.12) translateZ(10px); filter:brightness(1.25); }
+  }
+
+  .core-nucleus.thinking{
+    animation:nucleus-think 0.7s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+    filter:hue-rotate(15deg);
+  }
+
+  @keyframes nucleus-think{
+    0%,100%{ transform:scale(1) rotate(0deg); }
+    50%{ transform:scale(0.88) rotate(12deg); }
+  }
+
+  .core-label{ text-align:center; margin-top:12px; }
+  .core-name{
+    font-size:22px; font-weight:700;
+    letter-spacing:0.15em;
+    text-shadow:0 0 12px rgba(0,217,255,0.6);
+  }
+
+  .core-tag{
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--text-low); margin-top:5px;
+    letter-spacing:0.06em;
+  }
+
+  .metric-block{
+    display:flex; flex-direction:column; gap:12px;
+    padding:16px; border-radius:10px;
+    border:1px solid var(--line);
+    background:rgba(0,217,255,0.04);
+  }
+
+  .metric-title{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--cyan); letter-spacing:0.1em; text-transform:uppercase;
+  }
+
+  .metric-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; padding:8px 10px;
+    background:rgba(0,217,255,0.08);
+    border:1px solid rgba(0,217,255,0.15);
+    border-radius:6px;
+  }
+
+  .metric-row span:last-child{
+    font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:11px; font-weight:600;
+  }
+
+  .bar-track{
+    height:5px; background:rgba(0,217,255,0.12);
+    border-radius:3px; overflow:hidden; margin-top:6px;
+    border:1px solid rgba(0,217,255,0.2);
+  }
+
+  .bar-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--cyan), var(--violet));
+    border-radius:3px;
+    transition:width 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    box-shadow:0 0 12px var(--cyan);
+  }
+
+  .main{
+    grid-area:main;
+    display:flex; flex-direction:column;
+    min-height:0;
+  }
+
+  .chat-scroll{
+    flex:1; overflow-y:auto; padding:30px 36px;
+    display:flex; flex-direction:column; gap:20px;
+    background:linear-gradient(135deg, rgba(10,15,24,0.5) 0%, rgba(13,22,32,0.3) 100%);
+  }
+
+  .msg{
+    max-width:76%; display:flex; flex-direction:column; gap:7px;
+    animation:msg-arrive 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  @keyframes msg-arrive{
+    from{
+      opacity:0; transform:translateY(12px) scaleY(0.95);
+    }
+    to{
+      opacity:1; transform:translateY(0) scaleY(1);
+    }
+  }
+
+  .msg.user{ align-self:flex-end; align-items:flex-end; }
+  .msg.axion{ align-self:flex-start; align-items:flex-start; }
+
+  .msg-role{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--text-low); letter-spacing:0.08em;
+  }
+
+  .msg-bubble{
+    padding:13px 16px; border-radius:12px;
+    font-size:14px; line-height:1.58;
+    position:relative;
+  }
+
+  .msg.user .msg-bubble{
+    background:linear-gradient(135deg, rgba(0,217,255,0.15), rgba(187,134,252,0.12));
+    border:1.5px solid rgba(0,217,255,0.35);
+    border-top-right-radius:3px;
+    box-shadow:0 0 16px rgba(0,217,255,0.15);
+  }
+
+  .msg.axion .msg-bubble{
+    background:linear-gradient(135deg, rgba(10,20,35,0.8), rgba(13,22,32,0.6));
+    border:1.5px solid var(--line-bright);
+    border-top-left-radius:3px;
+    box-shadow:0 0 20px rgba(0,217,255,0.08);
+  }
+
+  .typing-row{
+    display:flex; gap:6px; padding:15px 16px;
+    background:rgba(13,22,32,0.7); border:1.5px solid var(--line);
+    border-radius:12px; border-top-left-radius:3px;
+    width:fit-content;
+  }
+
+  .typing-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 6px var(--cyan);
+    animation:type-bounce 1s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2){ animation-delay:0.12s; }
+  .typing-dot:nth-child(3){ animation-delay:0.24s; }
+
+  @keyframes type-bounce{
+    0%,60%,100%{ transform:translateY(0); opacity:0.45; }
+    30%{ transform:translateY(-7px); opacity:1; }
+  }
+
+  .composer{
+    border-top:2px solid var(--line);
+    padding:18px 28px 24px;
+    display:flex; gap:12px; align-items:flex-end;
+    background:rgba(10,15,24,0.8);
+  }
+
+  .composer textarea{
+    flex:1; resize:none;
+    background:rgba(0,217,255,0.06);
+    border:1.5px solid var(--line);
+    border-radius:10px; padding:12px 14px;
+    color:var(--text-hi); font-family:'Space Grotesk',sans-serif;
+    font-size:14px; line-height:1.4; max-height:120px;
+    outline:none;
+    transition:all 0.25s ease;
+  }
+
+  .composer textarea:focus{
+    border-color:var(--cyan);
+    background:rgba(0,217,255,0.08);
+    box-shadow:0 0 16px rgba(0,217,255,0.15), inset 0 0 8px rgba(0,217,255,0.05);
+  }
+
+  .send-btn{
+    width:48px; height:48px; border-radius:10px;
+    border:1.5px solid var(--cyan);
+    background:linear-gradient(135deg, rgba(0,217,255,0.18), rgba(187,134,252,0.12));
+    color:var(--cyan); font-size:16px; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    box-shadow:0 0 12px rgba(0,217,255,0.2);
+  }
+
+  .send-btn:hover{
+    box-shadow:0 0 24px rgba(0,217,255,0.4), inset 0 0 12px rgba(0,217,255,0.1);
+    transform:translateY(-2px);
+    background:linear-gradient(135deg, rgba(0,217,255,0.25), rgba(187,134,252,0.18));
+  }
+
+  .send-btn:active{ transform:translateY(0); }
+  .send-btn:disabled{ opacity:0.3; cursor:not-allowed; }
+
+  .right{
+    grid-area:right;
+    border-left:2px solid var(--line);
+    padding:24px 20px;
+    display:flex; flex-direction:column; gap:16px;
+    overflow-y:auto;
+    background:linear-gradient(135deg, rgba(13,22,32,0.6) 0%, rgba(10,15,24,0.4) 100%);
+  }
+
+  .panel-section{ display:flex; flex-direction:column; gap:12px; }
+
+  .panel-title{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--cyan); letter-spacing:0.1em;
+    display:flex; justify-content:space-between; align-items:center;
+    text-transform:uppercase; padding-bottom:8px;
+    border-bottom:1px solid rgba(0,217,255,0.15);
+  }
+
+  .clear-link{
+    color:var(--text-low); cursor:pointer;
+    text-decoration:underline; text-underline-offset:3px;
+    font-size:9px; transition:color 0.2s ease;
+  }
+
+  .clear-link:hover{ color:var(--cyan); }
+
+  .live-card{
+    background:linear-gradient(135deg, rgba(0,217,255,0.08), rgba(187,134,252,0.06));
+    border:1.5px solid rgba(0,217,255,0.25);
+    border-radius:10px; padding:13px;
+    display:flex; flex-direction:column; gap:9px;
+    transition:all 0.3s ease;
+    position:relative; overflow:hidden;
+  }
+
+  .live-card::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity:0;
+    animation:card-shine 3s ease-in-out infinite;
+  }
+
+  @keyframes card-shine{
+    0%,100%{ opacity:0; }
+    50%{ opacity:1; }
+  }
+
+  .live-card:hover{
+    border-color:var(--cyan);
+    box-shadow:0 0 16px rgba(0,217,255,0.2);
+  }
+
+  .live-card-head{
+    display:flex; align-items:center; gap:11px;
+    position:relative; z-index:2;
+  }
+
+  .live-icon{
+    width:32px; height:32px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+    background:rgba(0,217,255,0.1);
+    border:1px solid rgba(0,217,255,0.2);
+    border-radius:8px;
+  }
+
+  .live-title{
+    font-size:13px; font-weight:600;
+    line-height:1.3;
+  }
+
+  .live-sub{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--text-low); margin-top:2px;
+    display:flex; align-items:center; gap:6px;
+  }
+
+  .mini-spin{
+    width:10px; height:10px; border-radius:50%;
+    border:2px solid var(--line-bright); border-top-color:var(--cyan);
+    display:inline-block; animation:spin-tight 0.7s linear infinite;
+  }
+
+  @keyframes spin-tight{ to{ transform:rotate(360deg); } }
+
+  .news-item{
+    display:flex; gap:10px; padding:10px 0;
+    border-top:1px solid rgba(0,217,255,0.12);
+    align-items:flex-start;
+    transition:all 0.3s ease;
+    animation:news-slide 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  @keyframes news-slide{
+    from{ opacity:0; transform:translateX(-8px); }
+    to{ opacity:1; transform:translateX(0); }
+  }
+
+  .news-item:first-child{ border-top:none; padding-top:0; }
+
+  .news-thumb-wrap{
+    width:54px; height:54px; border-radius:8px;
+    overflow:hidden; flex-shrink:0;
+    background:var(--bg-panel-alt);
+    border:1px solid rgba(0,217,255,0.15);
+  }
+
+  .news-thumb{
+    width:100%; height:100%;
+    object-fit:cover; display:block;
+  }
+
+  .news-thumb-fallback{
+    width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:var(--text-low);
+  }
+
+  .news-text{ flex:1; min-width:0; }
+
+  .news-title{
+    font-size:11px; font-weight:600;
+    line-height:1.35; color:var(--text-hi);
+  }
+
+  .news-src{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--text-low); margin-top:4px; line-height:1.4;
+  }
+
+  .memory-empty{
+    font-size:11px; color:var(--text-low); line-height:1.55;
+    padding:12px; border:1px dashed rgba(0,217,255,0.15);
+    border-radius:8px; background:rgba(0,217,255,0.04);
+  }
+
+  .memory-item{
+    background:linear-gradient(135deg, rgba(0,217,255,0.06), rgba(187,134,252,0.04));
+    border:1px solid rgba(0,217,255,0.2);
+    border-radius:8px; padding:11px;
+    font-size:11px; line-height:1.45; color:var(--text-mid);
+    animation:mem-pop 0.35s cubic-bezier(0.4, 0.0, 0.2, 1);
+    position:relative; padding-left:18px;
+  }
+
+  @keyframes mem-pop{
+    from{ opacity:0; transform:scale(0.92); }
+    to{ opacity:1; transform:scale(1); }
+  }
+
+  .memory-item::before{
+    content:''; position:absolute; left:8px; top:50%;
+    transform:translateY(-50%);
+    width:4px; height:4px; border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 6px var(--cyan);
+  }
+
+  .scroll-thin::-webkit-scrollbar{ width:6px; }
+  .scroll-thin::-webkit-scrollbar-thumb{
+    background:rgba(0,217,255,0.25);
+    border-radius:3px;
+  }
+  .scroll-thin::-webkit-scrollbar-track{ background:transparent; }
+  .left, .right, .chat-scroll{ scrollbar-width:thin; scrollbar-color:rgba(0,217,255,0.25) transparent; }
+
+  .quick-row{ display:flex; flex-wrap:wrap; gap:7px; }
+
+  .quick-chip{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    padding:7px 11px; border-radius:20px;
+    border:1px solid rgba(0,217,255,0.2);
+    color:var(--text-mid); cursor:pointer;
+    background:rgba(0,217,255,0.06);
+    transition:all 0.2s ease;
+  }
+
+  .quick-chip:hover{
+    border-color:var(--cyan);
+    color:var(--cyan);
+    background:rgba(0,217,255,0.12);
+    box-shadow:0 0 12px rgba(0,217,255,0.15);
+  }
+
+  .spec-card{
+    background:linear-gradient(135deg, rgba(0,217,255,0.08), rgba(187,134,252,0.06));
+    border:1.5px solid rgba(0,217,255,0.25);
+    border-radius:10px; padding:14px;
+    margin-top:8px; font-size:12px; line-height:1.6;
+    animation:spec-reveal 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  @keyframes spec-reveal{
+    from{ opacity:0; transform:scaleY(0.95); }
+    to{ opacity:1; transform:scaleY(1); }
+  }
+
+  .spec-header{
+    font-weight:600; color:var(--cyan); margin-bottom:10px;
+    border-bottom:1px solid rgba(0,217,255,0.15); padding-bottom:8px;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.08em;
+  }
+
+  .spec-row{
+    display:grid; grid-template-columns:140px 1fr; gap:10px; margin-bottom:8px; padding-bottom:8px;
+    border-bottom:1px solid rgba(0,217,255,0.08);
+  }
+
+  .spec-row:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+
+  .spec-label{
+    color:var(--text-low); font-family:'JetBrains Mono',monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:0.05em;
+  }
+
+  .spec-value{
+    color:var(--text-hi); font-weight:500;
+  }
+
+  /* ===== WEATHER REPORT STYLES ===== */
+  .weather-report{
+    background:linear-gradient(135deg, rgba(0,217,255,0.1), rgba(187,134,252,0.08));
+    border:1.5px solid rgba(0,217,255,0.3);
+    border-radius:12px; padding:16px;
+    margin-top:8px;
+    animation:spec-reveal 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  .weather-current{
+    display:flex; gap:16px; margin-bottom:14px; padding-bottom:14px;
+    border-bottom:1px solid rgba(0,217,255,0.15);
+    align-items:flex-start;
+  }
+
+  .weather-icon-large{
+    font-size:48px; line-height:1; width:60px; display:flex; align-items:center; justify-content:center;
+  }
+
+  .weather-main-info{
+    flex:1;
+  }
+
+  .weather-title{
+    font-size:14px; font-weight:700; color:var(--cyan);
+    margin-bottom:6px; letter-spacing:0.05em;
+  }
+
+  .weather-temp{
+    font-size:28px; font-weight:700; color:var(--text-hi); margin-bottom:4px;
+  }
+
+  .weather-desc{
+    font-size:12px; color:var(--text-mid); margin-bottom:8px; line-height:1.5;
+  }
+
+  .weather-details{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:11px;
+  }
+
+  .weather-detail-item{
+    padding:6px 8px; background:rgba(0,217,255,0.06);
+    border:1px solid rgba(0,217,255,0.15); border-radius:6px;
+  }
+
+  .weather-detail-label{
+    color:var(--text-low); font-family:'JetBrains Mono',monospace;
+    font-size:9px; text-transform:uppercase; letter-spacing:0.05em;
+  }
+
+  .weather-detail-value{
+    color:var(--cyan); font-weight:600; margin-top:2px;
+  }
+
+  .forecast-header{
+    font-size:12px; font-weight:700; color:var(--cyan);
+    margin-bottom:10px; text-transform:uppercase; letter-spacing:0.08em;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  .forecast-grid{
+    display:grid; grid-template-columns:repeat(7, 1fr); gap:8px;
+  }
+
+  .forecast-day{
+    background:linear-gradient(135deg, rgba(0,217,255,0.08), rgba(187,134,252,0.05));
+    border:1px solid rgba(0,217,255,0.2);
+    border-radius:8px; padding:8px;
+    text-align:center; font-size:10px;
+    transition:all 0.3s ease;
+    animation:forecast-slide 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  @keyframes forecast-slide{
+    from{ opacity:0; transform:translateY(8px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .forecast-day:hover{
+    border-color:var(--cyan);
+    background:linear-gradient(135deg, rgba(0,217,255,0.15), rgba(187,134,252,0.08));
+    box-shadow:0 0 12px rgba(0,217,255,0.2);
+  }
+
+  .forecast-day-name{
+    color:var(--cyan); font-weight:600; margin-bottom:4px;
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:0.05em;
+  }
+
+  .forecast-icon{
+    font-size:20px; margin:4px 0;
+  }
+
+  .forecast-temp{
+    color:var(--text-hi); font-weight:600; margin-bottom:3px;
+  }
+
+  .forecast-condition{
+    color:var(--text-low); font-size:9px; line-height:1.3;
+  }
+
+  .forecast-rain{
+    color:var(--text-low); font-size:8px; margin-top:3px;
+  }
+
+  @keyframes shimmer-fast{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+
+  /* ===== KNOWLEDGE CARD STYLES ===== */
+  .knowledge-card{
+    background:linear-gradient(135deg, rgba(187,134,252,0.08), rgba(0,217,255,0.06));
+    border:1.5px solid rgba(187,134,252,0.3);
+    border-radius:12px; padding:16px; margin-top:8px;
+    animation:spec-reveal 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+    position:relative; overflow:hidden;
+  }
+
+  .knowledge-card::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--violet), var(--cyan), transparent);
+    animation:card-shine 3s ease-in-out infinite;
+  }
+
+  .knowledge-header{
+    display:flex; align-items:center; gap:12px; margin-bottom:14px;
+    padding-bottom:12px; border-bottom:1px solid rgba(187,134,252,0.15);
+  }
+
+  .knowledge-icon{
+    width:44px; height:44px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:22px;
+    background:rgba(187,134,252,0.1);
+    border:1px solid rgba(187,134,252,0.25);
+    box-shadow:0 0 12px rgba(187,134,252,0.15);
+  }
+
+  .knowledge-title{
+    flex:1;
+  }
+
+  .knowledge-name{
+    font-size:15px; font-weight:700; color:var(--text-hi); margin-bottom:3px;
+  }
+
+  .knowledge-category{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    color:var(--violet); letter-spacing:0.08em; text-transform:uppercase;
+  }
+
+  .knowledge-summary{
+    font-size:13px; color:var(--text-mid); line-height:1.65;
+    margin-bottom:14px; padding-bottom:14px;
+    border-bottom:1px solid rgba(187,134,252,0.1);
+  }
+
+  .knowledge-facts{
+    display:flex; flex-direction:column; gap:8px;
+  }
+
+  .knowledge-fact{
+    display:grid; grid-template-columns:140px 1fr; gap:10px;
+    padding:8px 10px;
+    background:rgba(187,134,252,0.06);
+    border:1px solid rgba(187,134,252,0.12);
+    border-radius:7px;
+    font-size:12px; line-height:1.45;
+  }
+
+  .knowledge-fact-label{
+    color:var(--violet); font-family:'JetBrains Mono',monospace;
+    font-size:9px; text-transform:uppercase; letter-spacing:0.06em;
+    display:flex; align-items:flex-start; padding-top:1px;
+  }
+
+  .knowledge-fact-value{
+    color:var(--text-hi);
+  }
+
+  .knowledge-timeline{
+    display:flex; flex-direction:column; gap:0; margin-top:4px;
+  }
+
+  .timeline-entry{
+    display:flex; gap:12px; padding:8px 0;
+    border-bottom:1px solid rgba(187,134,252,0.08); font-size:12px;
+    animation:news-slide 0.4s ease;
+  }
+
+  .timeline-entry:last-child{ border-bottom:none; }
+
+  .timeline-year{
+    font-family:'JetBrains Mono',monospace; color:var(--cyan);
+    font-size:10px; font-weight:700; min-width:56px; padding-top:1px;
+  }
+
+  .timeline-event{
+    color:var(--text-mid); line-height:1.45;
+  }
+
+  .knowledge-image{
+    width:100%; border-radius:8px; margin-bottom:12px;
+    border:1px solid rgba(187,134,252,0.2);
+    display:block; max-height:140px; object-fit:cover;
+  }
+
+  .knowledge-tag-row{
+    display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;
+  }
+
+  .knowledge-tag{
+    font-family:'JetBrains Mono',monospace; font-size:9px; padding:4px 8px;
+    border-radius:12px; border:1px solid rgba(187,134,252,0.2);
+    color:var(--text-low); background:rgba(187,134,252,0.06);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="grid-overlay"></div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">AXION</div>
+        <div class="brand-sub">NEURAL ADAPTIVE CORE V4.2</div>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div class="status-item"><span class="dot-pulse"></span>ONLINE</div>
+      <div class="status-item" id="session-clock">00:00:00</div>
+      <div class="status-item" id="node-count">0 NODES</div>
+    </div>
+  </div>
+
+  <div class="left scroll-thin">
+    <div class="core-stage">
+      <div class="core-vortex vortex-1"></div>
+      <div class="core-vortex vortex-2"></div>
+      <div class="core-vortex vortex-3"></div>
+      <div class="core-nucleus" id="nucleus"></div>
+    </div>
+
+    <div class="core-label">
+      <div class="core-name">AXION</div>
+      <div class="core-tag">/// IDLE — AWAITING INPUT</div>
+    </div>
+
+    <div class="metric-block">
+      <div class="metric-title">TELEMETRY</div>
+      <div class="metric-row"><span>Session exchanges</span><span id="metric-exchanges">0</span></div>
+      <div class="metric-row"><span>Persistent nodes</span><span id="metric-memories">0</span></div>
+      <div style="margin-top:4px;">
+        <div class="metric-row" style="margin-bottom:0;"><span>Adaptation level</span><span id="metric-adapt">0%</span></div>
+        <div class="bar-track"><div class="bar-fill" id="adapt-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="chat-scroll scroll-thin" id="chat-scroll">
+      <div class="msg axion">
+        <div class="msg-role">AXION</div>
+        <div class="msg-bubble" id="greeting-bubble">Initializing...</div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <textarea id="input" rows="1" placeholder="Execute command..."></textarea>
+      <button class="send-btn" id="send-btn" title="Execute">↻</button>
+    </div>
+  </div>
+
+  <div class="right scroll-thin">
+    <div class="panel-section">
+      <div class="panel-title">
+        <span>LIVE TELEMETRY</span>
+        <span class="clear-link" id="refresh-feed">refresh</span>
+      </div>
+
+      <div class="live-card" id="weather-card">
+        <div class="live-card-head">
+          <div class="live-icon" id="weather-icon"><span class="mini-spin"></span></div>
+          <div>
+            <div class="live-title" id="weather-title">Locating...</div>
+            <div class="live-sub" id="weather-sub">Requesting geolocation</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="live-card" id="news-card">
+        <div class="live-card-head">
+          <div class="live-icon">FEED</div>
+          <div>
+            <div class="live-title">Active feeds</div>
+            <div class="live-sub" id="news-sub">Not fetched yet</div>
+          </div>
+        </div>
+        <div id="news-list" style="display:flex; flex-direction:column; gap:10px; margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">
+        <span>LEARNED PATTERNS</span>
+        <span class="clear-link" id="clear-memory">clear</span>
+      </div>
+      <div id="memory-list"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">COMMAND PALETTE</div>
+      <div class="quick-row">
+        <div class="quick-chip" data-q="What's the weather like near me right now?">weather</div>
+        <div class="quick-chip" data-q="What's in the news today?">headlines</div>
+        <div class="quick-chip" data-q="What are the specs of iPhone 17?">specs</div>
+        <div class="quick-chip" data-q="Tell me about the Roman Empire — history, rise and fall">history</div>
+        <div class="quick-chip" data-q="Tell me about the Amazon Rainforest — geography and ecosystem">geography</div>
+        <div class="quick-chip" data-q="Tell me about the Blue Whale — biology, habitat, facts">animals</div>
+        <div class="quick-chip" data-q="Tell me about Jupiter — size, moons, atmosphere, exploration">planets</div>
+        <div class="quick-chip" data-q="What do you already know about me?">about me</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+resize();
+window.addEventListener('resize', resize);
+
+const PCOUNT = Math.min(85, Math.floor((window.innerWidth * window.innerHeight) / 18000));
+for(let i=0;i<PCOUNT;i++){
+  particles.push({
+    x: Math.random()*W, y: Math.random()*H,
+    vx: (Math.random()-0.5)*0.2, vy: (Math.random()-0.5)*0.2,
+    r: Math.random()*1.8 + 0.5
+  });
+}
+
+function drawFrame(){
+  ctx.clearRect(0,0,W,H);
+  for(const p of particles){
+    p.x += p.vx; p.y += p.vy;
+    if(p.x < 0 || p.x > W) p.vx *= -1;
+    if(p.y < 0 || p.y > H) p.vy *= -1;
+  }
+
+  for(let i=0;i<particles.length;i++){
+    for(let j=i+1;j<particles.length;j++){
+      const a = particles[i], b = particles[j];
+      const dx = a.x-b.x, dy = a.y-b.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < 150){
+        ctx.strokeStyle = `rgba(0, 217, 255, ${0.15 * (1 - dist/150)})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  for(const p of particles){
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle = `rgba(187, 134, 252, ${0.6 + 0.4 * Math.sin(Date.now()/200 + p.x)})`;
+    ctx.fill();
+  }
+
+  requestAnimationFrame(drawFrame);
+}
+drawFrame();
+
+const startTime = Date.now();
+setInterval(() => {
+  const s = Math.floor((Date.now()-startTime)/1000);
+  const hh = String(Math.floor(s/3600)).padStart(2,'0');
+  const mm = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  document.getElementById('session-clock').textContent = `${hh}:${mm}:${ss}`;
+}, 1000);
+
+let memories = [];
+let exchanges = 0;
+let conversationHistory = [];
+
+const chatScroll = document.getElementById('chat-scroll');
+const nucleus = document.getElementById('nucleus');
+const coreTag = document.querySelector('.core-tag');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send-btn');
+const memoryListEl = document.getElementById('memory-list');
+
+function scrollToBottom(){
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+}
+
+function appendMessage(role, text){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (role === 'user' ? 'user' : 'axion');
+  const roleText = role === 'user' ? 'YOU' : 'AXION';
+  wrap.innerHTML = `<div class="msg-role">${roleText}</div><div class="msg-bubble"></div>`;
+  wrap.querySelector('.msg-bubble').textContent = text;
+  chatScroll.appendChild(wrap);
+  scrollToBottom();
+}
+
+function showTyping(){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg axion';
+  wrap.id = 'typing-indicator';
+  wrap.innerHTML = `<div class="msg-role">AXION</div><div class="typing-row"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  chatScroll.appendChild(wrap);
+  scrollToBottom();
+}
+
+function hideTyping(){
+  const el = document.getElementById('typing-indicator');
+  if(el) el.remove();
+}
+
+function setThinking(isThinking){
+  nucleus.classList.toggle('thinking', isThinking);
+  coreTag.textContent = isThinking ? '/// PROCESSING...' : '/// IDLE - AWAITING INPUT';
+}
+
+function renderMemoryPanel(){
+  document.getElementById('metric-memories').textContent = memories.length;
+  document.getElementById('node-count').textContent = `${memories.length} NODES`;
+  const adapt = Math.min(100, memories.length * 8);
+  document.getElementById('metric-adapt').textContent = adapt + '%';
+  document.getElementById('adapt-bar').style.width = adapt + '%';
+
+  if(memories.length === 0){
+    memoryListEl.innerHTML = `<div class="memory-empty">No patterns learned yet. Each exchange will be analyzed.</div>`;
+    return;
+  }
+  memoryListEl.innerHTML = '';
+  memories.slice().reverse().forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'memory-item';
+    div.textContent = m.value;
+    memoryListEl.appendChild(div);
+  });
+}
+
+async function loadMemories(){
+  try{
+    const listRes = await window.storage.list('memory:', false);
+    const keys = (listRes && listRes.keys) ? listRes.keys : [];
+    const loaded = [];
+    for(const k of keys){
+      try{
+        const res = await window.storage.get(k, false);
+        if(res && res.value) loaded.push({ key:k, value: res.value });
+      }catch(e){ }
+    }
+    loaded.sort((a,b) => a.key.localeCompare(b.key));
+    memories = loaded;
+  }catch(e){
+    memories = [];
+  }
+  renderMemoryPanel();
+}
+
+async function saveMemory(fact){
+  const key = 'memory:' + Date.now();
+  try{
+    await window.storage.set(key, fact, false);
+    memories.push({ key, value: fact });
+    renderMemoryPanel();
+  }catch(e){ }
+}
+
+async function clearMemories(){
+  try{
+    for(const m of memories){
+      await window.storage.delete(m.key, false);
+    }
+  }catch(e){ }
+  memories = [];
+  renderMemoryPanel();
+}
+
+document.getElementById('clear-memory').addEventListener('click', () => {
+  if(confirm('PURGE ALL PERSISTENT MEMORY? This cannot be reversed.')){
+    clearMemories();
+  }
+});
+
+const WCODE = {
+  0:['Clear','☀️'], 1:['Mainly clear','🌤️'], 2:['Partly cloudy','⛅'], 3:['Overcast','☁️'],
+  45:['Fog','🌫️'], 48:['Rime fog','🌫️'],
+  51:['Light drizzle','🌧️'], 53:['Drizzle','🌧️'], 55:['Dense drizzle','🌧️'],
+  61:['Slight rain','🌧️'], 63:['Rain','🌧️'], 65:['Heavy rain','🌧️'],
+  71:['Slight snow','🌨️'], 73:['Snow','🌨️'], 75:['Heavy snow','❄️'], 77:['Snow grains','🌨️'],
+  80:['Rain showers','🌦️'], 81:['Rain showers','🌧️'], 82:['Violent showers','⛈️'],
+  85:['Snow showers','🌨️'], 86:['Heavy snow showers','❄️'],
+  95:['Thunderstorm','⛈️'], 96:['Thunderstorm','⛈️'], 99:['Severe thunderstorm','⛈️']
+};
+
+function describeWeather(code){ return WCODE[code] || ['Unknown', '🌡️']; }
+
+function getDayName(dateStr){
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return days[d.getUTCDay()];
+}
+
+let weatherSnapshot = null;
+
+async function fetchWeatherSnapshot(forceRefresh){
+  const titleEl = document.getElementById('weather-title');
+  const subEl = document.getElementById('weather-sub');
+  const iconEl = document.getElementById('weather-icon');
+
+  if(weatherSnapshot && !forceRefresh && (Date.now() - weatherSnapshot.fetchedAt < 5 * 60 * 1000)){
+    return weatherSnapshot;
+  }
+
+  titleEl.textContent = 'Locating...';
+  subEl.innerHTML = '<span class="mini-spin"></span> requesting geolocation';
+  iconEl.innerHTML = '<span class="mini-spin"></span>';
+
+  try{
+    const pos = await new Promise((resolve, reject) => {
+      if(!navigator.geolocation){ reject(new Error('unsupported')); return; }
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 300000 });
+    });
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    subEl.innerHTML = '<span class="mini-spin"></span> fetching forecast';
+
+    const [weatherRes, geoRes] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,windspeed_10m_max&timezone=auto`),
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`).catch(() => null)
+    ]);
+    
+    const weatherData = await weatherRes.json();
+    const geoData = geoRes ? await geoRes.json().catch(() => null) : null;
+    const cw = weatherData.current_weather;
+    const daily = weatherData.daily;
+    
+    const [condition, icon] = describeWeather(cw.weathercode);
+    const locationName = geoData
+      ? [geoData.city || geoData.locality, geoData.principalSubdivision].filter(Boolean).join(', ')
+      : `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+
+    // Build 7-day forecast
+    const forecast = [];
+    for(let i=0; i<7; i++){
+      const date = daily.time[i];
+      const [cond, weatherIcon] = describeWeather(daily.weathercode[i]);
+      forecast.push({
+        date,
+        day: getDayName(date),
+        high: Math.round(daily.temperature_2m_max[i]),
+        low: Math.round(daily.temperature_2m_min[i]),
+        condition: cond,
+        icon: weatherIcon,
+        rain: daily.precipitation_sum[i],
+        wind: Math.round(daily.windspeed_10m_max[i])
+      });
+    }
+
+    weatherSnapshot = {
+      location: locationName,
+      temp: cw.temperature,
+      condition,
+      icon,
+      windspeed: cw.windspeed,
+      forecast,
+      summary: `${locationName}: ${condition}, ${cw.temperature}C, wind ${cw.windspeed} km/h.`,
+      fetchedAt: Date.now()
+    };
+
+    iconEl.textContent = icon;
+    titleEl.textContent = `${Math.round(cw.temperature)}C`;
+    subEl.textContent = `${locationName}`;
+    return weatherSnapshot;
+  }catch(err){
+    iconEl.textContent = 'ERR';
+    titleEl.textContent = 'Location inaccessible';
+    subEl.textContent = 'Geolocation unavailable';
+    return null;
+  }
+}
+
+function renderWeatherReport(weather){
+  if(!weather) return '';
+
+  let html = `<div class="weather-report">`;
+  html += `<div class="weather-current">`;
+  html += `<div class="weather-icon-large">${weather.icon}</div>`;
+  html += `<div class="weather-main-info">`;
+  html += `<div class="weather-title">Current conditions — ${weather.location}</div>`;
+  html += `<div class="weather-temp">${Math.round(weather.temp)}°C</div>`;
+  html += `<div class="weather-desc">${weather.condition}</div>`;
+  html += `<div class="weather-details">`;
+  html += `<div class="weather-detail-item"><div class="weather-detail-label">Wind Speed</div><div class="weather-detail-value">${Math.round(weather.windspeed)} km/h</div></div>`;
+  html += `<div class="weather-detail-item"><div class="weather-detail-label">Feels like</div><div class="weather-detail-value">${Math.round(weather.temp - 2)}°C</div></div>`;
+  html += `</div></div></div>`;
+
+  html += `<div class="forecast-header">7-Day Forecast</div>`;
+  html += `<div class="forecast-grid">`;
+  
+  weather.forecast.forEach(day => {
+    html += `<div class="forecast-day">`;
+    html += `<div class="forecast-day-name">${day.day}</div>`;
+    html += `<div class="forecast-icon">${day.icon}</div>`;
+    html += `<div class="forecast-temp">${day.high}° / ${day.low}°</div>`;
+    html += `<div class="forecast-condition">${day.condition}</div>`;
+    if(day.rain > 0){
+      html += `<div class="forecast-rain">💧 ${day.rain.toFixed(1)}mm</div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+let newsSnapshot = null;
+
+// ── Multi-source image fetcher ──────────────────────────────────────────────
+// Source 1: Wikipedia page thumbnail (highest quality, most reliable)
+// Source 2: Wikimedia Commons full-text image search (broader coverage)
+// Both are free, keyless, CORS-enabled public APIs.
+async function fetchImageForHeadline(query){
+  // Strip parentheticals and trim to a clean search term
+  const clean = query.replace(/\(.*?\)/g,'').replace(/[^\w\s\-]/g,'').trim().slice(0,80);
+
+  // ── Source 1: Wikipedia page image (direct article thumbnail) ────────────
+  try{
+    const wpUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(clean)}&prop=pageimages&pithumbsize=400&pilimit=1&format=json&origin=*`;
+    const res = await fetch(wpUrl);
+    const data = await res.json();
+    const pages = data.query && data.query.pages;
+    if(pages){
+      const page = Object.values(pages)[0];
+      if(page && page.thumbnail && page.thumbnail.source){
+        return page.thumbnail.source;
+      }
+    }
+  }catch(e){}
+
+  // ── Source 2: Wikimedia Commons image search ─────────────────────────────
+  try{
+    const cmUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(clean)}&gsrlimit=3&prop=imageinfo&iiprop=url&iiurlwidth=400&format=json&origin=*`;
+    const res = await fetch(cmUrl);
+    const data = await res.json();
+    const pages = data.query && data.query.pages;
+    if(pages){
+      const entries = Object.values(pages);
+      for(const entry of entries){
+        const info = entry.imageinfo && entry.imageinfo[0];
+        if(!info) continue;
+        const src = info.thumburl || info.url || '';
+        // Skip SVG icons, logos, flags — they look wrong in image cards
+        if(src && !src.match(/\.(svg|gif)$/i) && !src.match(/(flag|icon|logo|coat|symbol)/i)){
+          return src;
+        }
+      }
+    }
+  }catch(e){}
+
+  return null;
+}
+
+async function fetchNewsSnapshot(topic, forceRefresh){
+  const subEl = document.getElementById('news-sub');
+  const listEl = document.getElementById('news-list');
+
+  if(newsSnapshot && !forceRefresh && !topic && (Date.now() - newsSnapshot.fetchedAt < 10 * 60 * 1000)){
+    return newsSnapshot;
+  }
+
+  subEl.innerHTML = '<span class="mini-spin"></span> scanning';
+  listEl.innerHTML = '';
+
+  const prompt = topic
+    ? `Search web for latest news about "${topic}". Return ONLY JSON array no markdown of up to 5: [{"title":"...","source":"...","summary":"one sentence"}]`
+    : `Search web for today's top news. Return ONLY JSON array no markdown of up to 5: [{"title":"...","source":"...","summary":"one sentence"}]`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1200,
+        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+    const data = await response.json();
+    const rawText = (data.content || []).map(b => b.text || "").filter(Boolean).join("\n");
+    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    const items = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+
+    listEl.innerHTML = '';
+    items.forEach((it, idx) => {
+      const div = document.createElement('div');
+      div.className = 'news-item';
+
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'news-thumb-wrap';
+      thumbWrap.id = `news-thumb-${idx}`;
+      thumbWrap.innerHTML = '<div style="width:100%;height:100%;background:linear-gradient(90deg, var(--bg-panel-alt) 25%, rgba(0,217,255,0.08) 50%, var(--bg-panel-alt) 75%);background-size:200% 100%;animation:shimmer-fast 1.2s ease-in-out infinite;"></div>';
+
+      const textWrap = document.createElement('div');
+      textWrap.className = 'news-text';
+      const t = document.createElement('div');
+      t.className = 'news-title';
+      t.textContent = it.title;
+      const s = document.createElement('div');
+      s.className = 'news-src';
+      s.textContent = [it.source, it.summary].filter(Boolean).join(' - ');
+      textWrap.appendChild(t);
+      textWrap.appendChild(s);
+
+      div.appendChild(thumbWrap);
+      div.appendChild(textWrap);
+      listEl.appendChild(div);
+
+      fetchImageForHeadline(it.title).then(imgUrl => {
+        const wrap = document.getElementById(`news-thumb-${idx}`);
+        if(!wrap) return;
+        if(imgUrl){
+          const img = document.createElement('img');
+          img.className = 'news-thumb';
+          img.src = imgUrl;
+          img.alt = '';
+          img.onerror = function(){
+            this.parentElement.innerHTML = '<div class="news-thumb-fallback">NEWS</div>';
+          };
+          wrap.innerHTML = '';
+          wrap.appendChild(img);
+        }else{
+          wrap.innerHTML = '<div class="news-thumb-fallback">NEWS</div>';
+        }
+      });
+    });
+    subEl.textContent = 'live';
+
+    newsSnapshot = {
+      topic: topic || null, items,
+      summary: items.map(it => `${it.title} (${it.source})`).join('; '),
+      fetchedAt: Date.now()
+    };
+    return newsSnapshot;
+  }catch(err){
+    subEl.textContent = 'sync failed';
+    return null;
+  }
+}
+
+document.getElementById('refresh-feed').addEventListener('click', () => {
+  fetchWeatherSnapshot(true);
+  fetchNewsSnapshot(newsSnapshot ? newsSnapshot.topic : null, true);
+});
+
+// ============================================================
+// KNOWLEDGE ENGINE — history, geography, animals, planets, science
+// ============================================================
+
+const KNOWLEDGE_CATEGORIES = {
+  history: {
+    icon: '📜',
+    label: 'HISTORICAL RECORD',
+    color: 'rgba(255,200,100,0.15)',
+    border: 'rgba(255,200,100,0.3)',
+    pattern: /\b(history|empire|war|battle|civilization|ancient|dynasty|revolution|king|queen|pharaoh|roman|greek|medieval|renaissance|world war|ww1|ww2|historical|era|century|bc|ad|independence|coloniali?s[tm]|slavery|holocaust|ottoman|mongol|viking|aztec|inca|maya)\b/i
+  },
+  geography: {
+    icon: '🌍',
+    label: 'GEOGRAPHIC DATA',
+    color: 'rgba(0,217,255,0.08)',
+    border: 'rgba(0,217,255,0.3)',
+    pattern: /\b(geography|country|continent|mountain|river|ocean|sea|island|desert|rainforest|amazon|sahara|himalaya|capital|population|lake|valley|canyon|plateau|country|nation|region|territory|border|climate|ecosystem|biome|coral reef|glacier|volcano|tectonic)\b/i
+  },
+  animal: {
+    icon: '🦁',
+    label: 'BIOLOGICAL RECORD',
+    color: 'rgba(100,255,150,0.08)',
+    border: 'rgba(100,255,150,0.25)',
+    pattern: /\b(animal|species|mammal|bird|reptile|fish|insect|wildlife|habitat|predator|prey|endangered|extinct|lion|tiger|elephant|whale|shark|eagle|snake|bear|wolf|gorilla|dolphin|cheetah|penguin|octopus|crab|butterfly|bee|spider|migration|evolution|adaptation|food chain|carnivore|herbivore|omnivore)\b/i
+  },
+  planet: {
+    icon: '🪐',
+    label: 'ASTRONOMICAL DATA',
+    color: 'rgba(187,134,252,0.1)',
+    border: 'rgba(187,134,252,0.35)',
+    pattern: /\b(planet|solar system|mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto|moon|sun|star|galaxy|nebula|black hole|asteroid|comet|orbit|atmosphere|gravity|nasa|space|cosmos|universe|milky way|exoplanet|dwarf planet|supernova|pulsar|quasar|dark matter|wormhole)\b/i
+  },
+  science: {
+    icon: '⚗️',
+    label: 'SCIENTIFIC DATA',
+    color: 'rgba(0,217,255,0.06)',
+    border: 'rgba(0,217,255,0.25)',
+    pattern: /\b(science|physics|chemistry|biology|mathematics|quantum|element|atom|molecule|dna|gene|cell|evolution|photosynthesis|relativity|gravity|electricity|magnetism|nuclear|radiation|enzyme|protein|periodic table|theorem|hypothesis|experiment|neuron|brain|nervous system)\b/i
+  }
+};
+
+function detectKnowledgeCategory(text){
+  for(const [key, cat] of Object.entries(KNOWLEDGE_CATEGORIES)){
+    if(cat.pattern.test(text)) return { key, ...cat };
+  }
+  return null;
+}
+
+async function fetchKnowledgeData(query, category){
+  const catLabel = category ? category.label : 'GENERAL KNOWLEDGE';
+  
+  const prompt = `Search the web and provide comprehensive information about: "${query}"
+  
+Return ONLY valid JSON, no markdown, no code fences:
+{
+  "name": "Subject/topic name",
+  "category": "${catLabel}",
+  "emoji": "single relevant emoji",
+  "summary": "2-3 sentence engaging overview",
+  "facts": [
+    {"label": "fact type", "value": "detail"},
+    {"label": "fact type", "value": "detail"},
+    {"label": "fact type", "value": "detail"},
+    {"label": "fact type", "value": "detail"},
+    {"label": "fact type", "value": "detail"}
+  ],
+  "timeline": [
+    {"year": "year or period", "event": "what happened"},
+    {"year": "year or period", "event": "what happened"},
+    {"year": "year or period", "event": "what happened"}
+  ],
+  "tags": ["tag1", "tag2", "tag3", "tag4"],
+  "image_query": "the exact Wikipedia article title for this subject (e.g. 'Roman Empire', 'Blue whale', 'Jupiter', 'Amazon River') — used for image search"
+}
+
+For animals: facts = classification, size/weight, diet, lifespan, status. Timeline = evolution/discovery milestones.
+For planets: facts = diameter, mass, distance from sun, moons, atmosphere. Timeline = discovery/mission dates.
+For history: facts = dates, leaders, territory, significance, outcome. Timeline = key events chronologically.
+For geography: facts = area, population, capital, climate, elevation/depth. Timeline = human settlement/exploration.
+For science: facts = discovered by, year, applications, related fields, formula/symbol. Timeline = development milestones.
+Use accurate, factual data only.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      model:"claude-sonnet-4-6",
+      max_tokens:2000,
+      messages:[{role:"user", content:prompt}],
+      tools:[{type:"web_search_20250305", name:"web_search"}]
+    })
+  });
+
+  const data = await response.json();
+  const rawText = (data.content||[]).map(b=>b.text||"").filter(Boolean).join("\n");
+  const cleaned = rawText.replace(/```json|```/g,"").trim();
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  return JSON.parse(match ? match[0] : cleaned);
+}
+
+function renderKnowledgeCard(info, category){
+  const cat = category || { icon:'🔍', label:'KNOWLEDGE', color:'rgba(0,217,255,0.08)', border:'rgba(0,217,255,0.25)' };
+  const icon = info.emoji || cat.icon;
+
+  let html = `<div class="knowledge-card" style="border-color:${cat.border}; background:linear-gradient(135deg, ${cat.color}, rgba(0,217,255,0.04));">`;
+
+  // Header
+  html += `<div class="knowledge-header">`;
+  html += `<div class="knowledge-icon" style="background:${cat.color}; border-color:${cat.border};">${icon}</div>`;
+  html += `<div class="knowledge-title">`;
+  html += `<div class="knowledge-name">${info.name || 'Unknown'}</div>`;
+  html += `<div class="knowledge-category" style="color:var(--violet);">${info.category || cat.label}</div>`;
+  html += `</div></div>`;
+
+  // Summary
+  if(info.summary){
+    html += `<div class="knowledge-summary">${info.summary}</div>`;
+  }
+
+  // Key facts
+  if(info.facts && info.facts.length > 0){
+    html += `<div class="knowledge-facts">`;
+    info.facts.forEach(f => {
+      if(f.label && f.value){
+        html += `<div class="knowledge-fact">`;
+        html += `<div class="knowledge-fact-label">${f.label}</div>`;
+        html += `<div class="knowledge-fact-value">${f.value}</div>`;
+        html += `</div>`;
+      }
+    });
+    html += `</div>`;
+  }
+
+  // Timeline
+  if(info.timeline && info.timeline.length > 0){
+    html += `<div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(187,134,252,0.12);">`;
+    html += `<div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--cyan); letter-spacing:0.08em; margin-bottom:8px;">TIMELINE</div>`;
+    html += `<div class="knowledge-timeline">`;
+    info.timeline.forEach(t => {
+      html += `<div class="timeline-entry">`;
+      html += `<div class="timeline-year">${t.year}</div>`;
+      html += `<div class="timeline-event">${t.event}</div>`;
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Tags
+  if(info.tags && info.tags.length > 0){
+    html += `<div class="knowledge-tag-row">`;
+    info.tags.forEach(t => {
+      html += `<div class="knowledge-tag">${t}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  // Give this card a unique ID so we can inject the image once it's in the DOM
+  const imgId = `kimg-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  html = html.replace('class="knowledge-card"', `class="knowledge-card" data-img-id="${imgId}"`);
+
+  // Insert a skeleton image placeholder right after the header
+  const imgSlot = `<div class="knowledge-img-slot" id="${imgId}" style="width:100%;height:140px;border-radius:8px;overflow:hidden;margin:10px 0;background:linear-gradient(90deg,var(--bg-panel-alt) 25%,rgba(187,134,252,0.08) 50%,var(--bg-panel-alt) 75%);background-size:200% 100%;animation:shimmer-fast 1.4s ease-in-out infinite;border:1px solid rgba(187,134,252,0.15);"></div>`;
+  html = html.replace('<div class="knowledge-summary">', imgSlot + '<div class="knowledge-summary">');
+
+  if(info.image_query){
+    setTimeout(async () => {
+      const slot = document.getElementById(imgId);
+      if(!slot) return;
+      const searchQuery = info.image_query || info.name || '';
+      const imgUrl = await fetchImageForHeadline(searchQuery);
+      if(imgUrl){
+        const img = document.createElement('img');
+        img.style.cssText = 'width:100%;height:140px;object-fit:cover;display:block;border-radius:8px;border:1px solid rgba(187,134,252,0.2);';
+        img.alt = info.name || '';
+        img.onerror = () => slot.remove();
+        img.onload  = () => slot.replaceWith(img);
+        img.src = imgUrl;
+      } else {
+        slot.remove();
+      }
+    }, 80);
+  } else {
+    // Remove the slot immediately if no query
+    setTimeout(() => { const s = document.getElementById(imgId); if(s) s.remove(); }, 80);
+  }
+
+  return html;
+}
+
+async function fetchDeviceSpecs(deviceName){
+  const prompt = `Search the web for detailed specifications of "${deviceName}". Return ONLY valid JSON no markdown:
+{
+  "device_name": "full name",
+  "device_type": "phone/laptop/tablet/etc",
+  "processor": "CPU model",
+  "gpu": "GPU model",
+  "ram": "RAM amount",
+  "storage": "Storage options",
+  "screen": "Display specs",
+  "battery": "Battery capacity",
+  "os": "Operating system",
+  "camera": "Camera specs if applicable",
+  "other": "Other key specs"
+}
+Include ONLY specs from real, current products. Use accurate numbers.`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+
+    const data = await response.json();
+    const rawText = (data.content || []).map(b => b.text || "").filter(Boolean).join("\n");
+    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    const specs = JSON.parse(cleaned);
+    return specs;
+  }catch(err){
+    return null;
+  }
+}
+
+function renderSpecCard(specs){
+  if(!specs) return '';
+
+  let html = `<div class="spec-card">`;
+  html += `<div class="spec-header">${specs.device_name || 'Device'} — ${specs.device_type || 'Device'}</div>`;
+
+  const specFields = [
+    { key: 'processor', label: 'Processor' },
+    { key: 'gpu', label: 'GPU' },
+    { key: 'ram', label: 'RAM' },
+    { key: 'storage', label: 'Storage' },
+    { key: 'screen', label: 'Display' },
+    { key: 'battery', label: 'Battery' },
+    { key: 'camera', label: 'Camera' },
+    { key: 'os', label: 'OS' },
+    { key: 'other', label: 'Other' }
+  ];
+
+  specFields.forEach(field => {
+    const value = specs[field.key];
+    if(value && value.toLowerCase() !== 'n/a' && value.trim()){
+      html += `<div class="spec-row">`;
+      html += `<div class="spec-label">${field.label}</div>`;
+      html += `<div class="spec-value">${value}</div>`;
+      html += `</div>`;
+    }
+  });
+
+  html += `</div>`;
+  return html;
+}
+
+async function askAxion(userMessage, liveContext, specCard = ''){
+  const memoryContext = memories.length
+    ? memories.map(m => '- ' + m.value).join('\n')
+    : '(no data learned yet)';
+
+  let systemPrompt = `You are AXION, precision neural adaptive core. Direct, technical, decisive. Never conversational. You retain patterns from past exchanges. Reference them naturally.
+
+Known patterns:
+${memoryContext}
+${liveContext ? `Live telemetry this turn:\n${liveContext}\n` : ''}
+
+Decide if this exchange teaches one lasting fact about user under 12 words.
+
+Reply ONLY valid JSON no fences:
+{"reply": "your reply", "memory": "new pattern or null"}`;
+
+  // Special handling for weather queries
+  if(specCard && liveContext && liveContext.includes('Current:')){
+    systemPrompt = `You are a professional meteorologist reporting weather conditions and forecasts with technical precision and accuracy.
+
+Real-time data:
+${liveContext}
+
+Provide a brief, authoritative weather report (2-3 sentences) covering:
+1. Current conditions at their location
+2. Immediate forecast (next 12-24 hours)
+3. Notable patterns for the week
+4. Any weather advisories or alerts if applicable
+
+Be precise with numbers and terminology. Sound professional like a broadcast meteorologist.
+
+Decide if the user prefers weather information (hint: yes, they're asking weather).
+
+Reply ONLY valid JSON:
+{"reply": "your professional weather report", "memory": "user interested in weather forecasts or null"}`;
+  }
+
+  // Special handling for knowledge queries
+  if(specCard && liveContext && liveContext.includes('Knowledge context:')){
+    systemPrompt = `You are AXION, a precision intelligence core with encyclopedic knowledge spanning history, geography, biology, astronomy, and science. You are authoritative, analytical, and engaging — like a combination of a historian, scientist, and professor.
+
+Known user patterns:
+${memoryContext}
+
+Context retrieved:
+${liveContext}
+
+Write a concise, expert commentary (2-4 sentences) on the topic that:
+- Adds insight beyond just the raw facts
+- Highlights what makes this subject remarkable or significant
+- Connects it to broader context (other events, scale, impact)
+- Is precise and authoritative in tone
+
+The structured data card is already shown separately, so do NOT repeat the individual facts — add perspective and depth instead.
+
+Reply ONLY valid JSON:
+{"reply": "your expert commentary", "memory": "user interest pattern or null"}`;
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [...conversationHistory, { role: "user", content: userMessage }]
+    })
+  });
+
+  const data = await response.json();
+  const rawText = (data.content || []).map(block => block.text || "").filter(Boolean).join("\n");
+
+  let parsed;
+  try{
+    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    parsed = JSON.parse(cleaned);
+  }catch(e){
+    parsed = { reply: "Parse error. Retry.", memory: null };
+  }
+  
+  if(specCard){
+    parsed.reply = parsed.reply + specCard;
+  }
+  
+  return parsed;
+}
+
+async function handleSend(){
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  appendMessage('user', text);
+  conversationHistory.push({ role: 'user', content: text });
+  showTyping();
+  setThinking(true);
+
+  let liveContext = '';
+  let specCard = '';
+
+  try{
+    if(/weather|temperature|forecast|hot|cold|rain|wind|humidity/i.test(text)){
+      coreTag.textContent = '/// FETCHING WEATHER...';
+      const w = await fetchWeatherSnapshot();
+      if(w){
+        specCard = renderWeatherReport(w);
+        const forecastSummary = w.forecast.slice(0, 3).map(d => `${d.day}: ${d.high}°C, ${d.condition}`).join(' | ');
+        liveContext += `Current: ${w.location}, ${w.temp}°C, ${w.condition}, Wind: ${w.windspeed} km/h\nNext 3 days: ${forecastSummary}\n`;
+      }
+    }
+    if(/news|headlines?|happening|current events/i.test(text)){
+      coreTag.textContent = '/// SCANNING FEEDS...';
+      const topicMatch = text.match(/news (?:about|on)\s+(.+)/i);
+      const topic = topicMatch ? topicMatch[1].replace(/[?.!]+$/, '').trim() : null;
+      const n = await fetchNewsSnapshot(topic);
+      if(n) liveContext += `News: ${n.summary}\n`;
+    }
+    
+    // Device specs detection
+    const deviceMatch = text.match(/(?:specs?|specifications?|tell me about|what.*(?:have|got)|features?|details?)\s+(?:of\s+)?([a-zA-Z0-9\s\-\.]+?)(?:\?|$)/i);
+    if(deviceMatch || /iphone|ipad|macbook|laptop|android|galaxy|pixel|surface|specs?|gpu|processor|ram|rom|storage/i.test(text)){
+      let deviceName = deviceMatch ? deviceMatch[1].trim() : null;
+      
+      if(!deviceName){
+        const commonDevices = text.match(/(?:iphone\s+\d+|ipad\s+\d+|macbook|mac\s+mini|mac\s+studio|imac|galaxy\s+s\d+|pixel\s+\d+|surface\s+\w+|dell\s+\w+|hp\s+\w+|lenovo\s+\w+|asus\s+\w+)/i);
+        deviceName = commonDevices ? commonDevices[0] : null;
+      }
+      
+      if(deviceName){
+        coreTag.textContent = '/// SCANNING DEVICE DATABASE...';
+        const specs = await fetchDeviceSpecs(deviceName);
+        if(specs){
+          specCard = renderSpecCard(specs);
+        }
+      }
+    }
+
+    // Knowledge engine — history, geography, animals, planets, science
+    if(!specCard){
+      const knowledgeCat = detectKnowledgeCategory(text);
+      const isKnowledgeQuery = knowledgeCat && /\b(tell me|explain|what is|who is|describe|about|history of|facts about|information on|geography of|life of|how big|how old|when did|where is|what are)\b/i.test(text);
+      if(isKnowledgeQuery){
+        coreTag.textContent = `/// ACCESSING ${knowledgeCat.label}...`;
+        try{
+          const info = await fetchKnowledgeData(text, knowledgeCat);
+          if(info && info.name){
+            specCard = renderKnowledgeCard(info, knowledgeCat);
+            liveContext += `Knowledge context: ${info.name} — ${info.summary || ''}\n`;
+          }
+        }catch(e){ console.warn('Knowledge fetch failed', e); }
+      }
+    }
+  }catch(e){ }
+
+  try{
+    const result = await askAxion(text, liveContext, specCard);
+    hideTyping();
+    
+    const wrap = document.createElement('div');
+    wrap.className = 'msg axion';
+    wrap.innerHTML = `<div class="msg-role">AXION</div><div class="msg-bubble" id="response-bubble"></div>`;
+    
+    const bubble = wrap.querySelector('.msg-bubble');
+    if(specCard){
+      bubble.innerHTML = `<p>${result.reply}</p>` + specCard;
+    }else{
+      bubble.textContent = result.reply;
+    }
+    
+    chatScroll.appendChild(wrap);
+    scrollToBottom();
+    
+    conversationHistory.push({ role: 'assistant', content: result.reply });
+
+    exchanges += 1;
+    document.getElementById('metric-exchanges').textContent = exchanges;
+
+    if(result.memory && typeof result.memory === 'string' && result.memory.toLowerCase() !== 'null' && result.memory.trim().length > 0){
+      await saveMemory(result.memory.trim());
+    }
+  }catch(err){
+    hideTyping();
+    appendMessage('axion', "Core unavailable. Check connection.");
+    console.error(err);
+  }finally{
+    setThinking(false);
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.addEventListener('click', handleSend);
+input.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    handleSend();
+  }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+
+document.querySelectorAll('.quick-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    input.value = chip.getAttribute('data-q');
+    handleSend();
+  });
+});
+
+async function boot(){
+  await loadMemories();
+  const greetingBubble = document.getElementById('greeting-bubble');
+  if(memories.length > 0){
+    greetingBubble.textContent = `Welcome back. ${memories.length} pattern(s) retained. Ready to execute.`;
+  }else{
+    greetingBubble.textContent = "AXION initialized. Each exchange sharpens understanding. Ready.";
+  }
+  fetchWeatherSnapshot();
+}
+boot();
+</script>
+
+</body>
+</html>
